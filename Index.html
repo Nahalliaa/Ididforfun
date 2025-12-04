@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Webhook Manager</title>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* Base Variables (Orange Theme Default) */
+            --bg-body: #0f0f11;
+            --bg-panel: #18181b;
+            --bg-input: #09090b;
+            --primary: #f97316; /* Orange */
+            --primary-hover: #ea580c;
+            --text-main: #fafafa;
+            --text-muted: #a1a1aa;
+            --border: #27272a;
+            --radius: 8px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            --font-ui: 'Inter', sans-serif;
+            --font-code: 'JetBrains Mono', monospace;
+        }
+
+        /* Arcade Theme Overrides */
+        body.theme-arcade {
+            --bg-body: #1a0b2e;
+            --bg-panel: #2b1046;
+            --bg-input: #11051f;
+            --primary: #d946ef; /* Neon Fuschia */
+            --primary-hover: #c026d3;
+            --text-main: #e0f2fe;
+            --text-muted: #a5b4fc;
+            --border: #4c1d95;
+            --radius: 0px; /* Sharp corners for arcade feel */
+            --shadow: 0 0 15px rgba(217, 70, 239, 0.2);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: var(--font-ui);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            transition: background 0.3s ease;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .logo {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: -0.5px;
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .webhook-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .webhook-item {
+            padding: 10px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: 0.2s;
+        }
+
+        .webhook-item:hover, .webhook-item.active {
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .webhook-item .actions i {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-left: 8px;
+            transition: 0.2s;
+        }
+        .webhook-item .actions i:hover { color: #ef4444; }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            align-items: center;
+        }
+
+        .input-group {
+            position: relative;
+            flex: 1;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 12px;
+            border-radius: var(--radius);
+            font-family: var(--font-ui);
+            outline: none;
+            transition: 0.2s;
+        }
+
+        input:focus, textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: var(--font-code);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button:hover { background: var(--primary-hover); }
+        
+        button.secondary {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        
+        button.secondary:hover {
+            border-color: var(--text-main);
+            color: var(--text-main);
+        }
+
+        /* Editor Tabs */
+        .editor-container {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-input);
+        }
+
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            border-right: 1px solid var(--border);
+            background: transparent;
+            transition: 0.2s;
+        }
+
+        .tab.active {
+            color: var(--primary);
+            background: var(--bg-panel);
+            font-weight: 700;
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .tab-content {
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .tab-content.active { display: block; }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Settings Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal {
+            background: var(--bg-panel);
+            padding: 2rem;
+            border-radius: var(--radius);
+            width: 400px;
+            border: 1px solid var(--border);
+        }
+
+        .switch-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--bg-panel);
+            border-left: 4px solid var(--primary);
+            padding: 15px 25px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            transform: translateY(100px);
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 200;
+        }
+        .toast.show { transform: translateY(0); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 10px; }
+            .webhook-list { display: none; } /* Hide list on mobile default, toggle needed in real app or simplified */
+            .logo { margin-bottom: 0; }
+            .form-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body class="theme-orange">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">
+            <i class="fa-solid fa-bolt"></i> NEXUS
+            <div style="flex:1"></div>
+            <button class="secondary" onclick="openSettings()" style="padding: 5px 10px;"><i class="fa-solid fa-gear"></i></button>
+        </div>
+
+        <div class="section-title">Saved Webhooks</div>
+        <button class="secondary" onclick="addNewWebhook()" style="width: 100%; margin-bottom: 1rem; justify-content: center;">
+            <i class="fa-solid fa-plus"></i> New Webhook
+        </button>
+        <div class="webhook-list" id="webhookList">
+            <!-- Populated via JS -->
+        </div>
+
+        <div class="section-title" style="margin-top: 1rem;">Presets</div>
+        <div class="webhook-list" id="presetList" style="flex: 0.5;">
+            <!-- Populated via JS -->
+        </div>
+        <button class="secondary" onclick="savePreset()" style="width: 100%; margin-top: 5px; justify-content: center;">
+            <i class="fa-solid fa-floppy-disk"></i> Save Current as Preset
+        </button>
+    </div>
+
+    <!-- Main Interface -->
+    <div class="main">
+        <div class="top-bar">
+            <div class="input-group">
+                <input type="text" id="webhookName" placeholder="Webhook Name (Alias)">
+            </div>
+            <div class="input-group" style="flex: 2;">
+                <input type="password" id="webhookUrl" placeholder="https://discord.com/api/webhooks/...">
+                <i class="fa-solid fa-eye" onclick="toggleUrlVisibility()" style="position: absolute; right: 15px; top: 15px; cursor: pointer; color: var(--text-muted);"></i>
+            </div>
+            <button onclick="saveCurrentWebhook()"><i class="fa-solid fa-save"></i> Save</button>
+        </div>
+
+        <div class="editor-container">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('visual')">Visual Builder</div>
+                <div class="tab" onclick="switchTab('json')">JSON Advanced</div>
+            </div>
+
+            <!-- Visual Builder -->
+            <div id="tab-visual" class="tab-content active">
+                <div class="form-grid">
+                    <input type="text" id="msgUsername" placeholder="Bot Name Override">
+                    <input type="text" id="msgAvatar" placeholder="Avatar URL">
+                </div>
+                <textarea id="msgContent" placeholder="Main Message Content..." style="margin-bottom: 1rem;"></textarea>
+                
+                <div class="section-title">Embed Details</div>
+                <div class="form-grid">
+                    <input type="text" id="embedTitle" placeholder="Embed Title">
+                    <input type="color" id="embedColor" value="#f97316" style="height: 45px; padding: 5px; cursor: pointer;">
+                </div>
+                <textarea id="embedDesc" placeholder="Embed Description" style="min-height: 80px; margin-bottom: 1rem;"></textarea>
+                <div class="form-grid">
+                    <input type="text" id="embedFooter" placeholder="Footer Text">
+                    <input type="text" id="embedImage" placeholder="Image URL">
+                </div>
+            </div>
+
+            <!-- JSON Editor -->
+            <div id="tab-json" class="tab-content">
+                <p style="color: var(--text-muted); margin-bottom: 10px; font-size: 0.8rem;">
+                    Paste raw Discord Webhook JSON here. This overrides the Visual Builder.
+                </p>
+                <textarea id="jsonEditor" style="height: 300px; font-family: monospace;"></textarea>
+                <button class="secondary" onclick="formatJSON()" style="margin-top: 10px;">Format JSON</button>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 1rem; justify-content: flex-end;">
+            <button class="secondary" onclick="clearFields()">Clear</button>
+            <button onclick="sendMessage()" style="padding: 12px 30px; font-size: 1.1rem;">
+                <i class="fa-solid fa-paper-plane"></i> Send Message
+            </button>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <h2 style="margin-bottom: 1.5rem;">Configuration</h2>
+            
+            <div class="switch-container">
+                <span>Visual Theme</span>
+                <select id="themeSelector" onchange="changeTheme(this.value)">
+                    <option value="theme-orange">Industrial Orange</option>
+                    <option value="theme-arcade">Neon Arcade</option>
+                </select>
+            </div>
+
+            <div class="switch-container">
+                <span>Danger Zone</span>
+                <button class="secondary" onclick="nukeStorage()" style="border-color: #ef4444; color: #ef4444;">Reset All Data</button>
+            </div>
+
+            <button onclick="closeSettings()" style="width: 100%; margin-top: 1rem;">Close</button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">Message Sent Successfully!</div>
+
+    <script>
+        // --- State Management ---
+        const state = {
+            webhooks: JSON.parse(localStorage.getItem('nexus_webhooks')) || [],
+            presets: JSON.parse(localStorage.getItem('nexus_presets')) || [],
+            currentId: null,
+            theme: localStorage.getItem('nexus_theme') || 'theme-orange',
+            editorMode: 'visual' // 'visual' or 'json'
+        };
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            applyTheme(state.theme);
+            document.getElementById('themeSelector').value = state.theme;
+            renderWebhooks();
+            renderPresets();
+            
+            // Set default JSON structure
+            document.getElementById('jsonEditor').value = JSON.stringify({
+                content: "Hello World",
+                embeds: []
+            }, null, 2);
+        });
+
+        // --- Theme System ---
+        function changeTheme(themeName) {
+            state.theme = themeName;
+            localStorage.setItem('nexus_theme', themeName);
+            applyTheme(themeName);
+        }
+
+        function applyTheme(themeName) {
+            document.body.className = themeName;
+        }
+
+        function openSettings() { document.getElementById('settingsModal').style.display = 'flex'; }
+        function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
+
+        // --- Webhook Management ---
+        function renderWebhooks() {
+            const list = document.getElementById('webhookList');
+            list.innerHTML = '';
+            
+            state.webhooks.forEach(wh => {
+                const item = document.createElement('div');
+                item.className = `webhook-item ${state.currentId === wh.id ? 'active' : ''}`;
+                item.innerHTML = `
+                    <span onclick="loadWebhook('${wh.id}')">${wh.name}</span>
+                    <div class="actions">
+                        <i class="fa-solid fa-trash" onclick="deleteWebhook('${wh.id}')"></i>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function addNewWebhook() {
+            document.getElementById('webhookName').value = '';
+            document.getElementById('webhookUrl').value = '';
+            state.currentId = null;
+            renderWebhooks();
+        }
+
+        function saveCurrentWebhook() {
+            const name = document.getElementById('webhookName').value;
+            const url = document.getElementById('webhookUrl').value;
+
+            if(!name || !url) return showToast('Name and URL required', true);
+
+            if(state.currentId) {
+                // Update existing
+                const index = state.webhooks.findIndex(w => w.id === state.currentId);
+                state.webhooks[index] = { id: state.currentId, name, url };
+            } else {
+                // Create new
+                const newId = Date.now().toString();
+                state.webhooks.push({ id: newId, name, url });
+                state.currentId = newId;
+            }
+
+            localStorage.setItem('nexus_webhooks', JSON.stringify(state.webhooks));
+            renderWebhooks();
+            showToast('Webhook Saved');
+        }
+
+        function loadWebhook(id) {
+            const wh = state.webhooks.find(w => w.id === id);
+            if(wh) {
+                state.currentId = id;
+                document.getElementById('webhookName').value = wh.name;
+                document.getElementById('webhookUrl').value = wh.url;
+                renderWebhooks();
+            }
+        }
+
+        function deleteWebhook(id) {
+            if(confirm('Delete this webhook?')) {
+                state.webhooks = state.webhooks.filter(w => w.id !== id);
+                localStorage.setItem('nexus_webhooks', JSON.stringify(state.webhooks));
+                if(state.currentId === id) addNewWebhook();
+                renderWebhooks();
+            }
+        }
+
+        // --- Preset Management ---
+        function savePreset() {
+            const name = prompt("Name this preset:");
+            if(!name) return;
+
+            const payload = buildPayload();
+            state.presets.push({ id: Date.now().toString(), name, data: payload });
+            localStorage.setItem('nexus_presets', JSON.stringify(state.presets));
+            renderPresets();
+        }
+
+        function renderPresets() {
+            const list = document.getElementById('presetList');
+            list.innerHTML = '';
+            state.presets.forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'webhook-item';
+                item.innerHTML = `
+                    <span onclick='loadPreset(${JSON.stringify(p.data)})'>${p.name}</span>
+                    <div class="actions">
+                        <i class="fa-solid fa-trash" onclick="deletePreset('${p.id}')"></i>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function deletePreset(id) {
+            state.presets = state.presets.filter(p => p.id !== id);
+            localStorage.setItem('nexus_presets', JSON.stringify(state.presets));
+            renderPresets();
+        }
+
+        function loadPreset(data) {
+            // Check if data is visual or raw json compatible
+            // For simplicity, we fill visual fields if they exist
+            document.getElementById('msgContent').value = data.content || '';
+            document.getElementById('msgUsername').value = data.username || '';
+            document.getElementById('msgAvatar').value = data.avatar_url || '';
+            
+            if(data.embeds && data.embeds.length > 0) {
+                const embed = data.embeds[0];
+                document.getElementById('embedTitle').value = embed.title || '';
+                document.getElementById('embedDesc').value = embed.description || '';
+                document.getElementById('embedColor').value = embed.color ? '#' + embed.color.toString(16).padStart(6, '0') : '#000000';
+                if(embed.footer) document.getElementById('embedFooter').value = embed.footer.text || '';
+                if(embed.image) document.getElementById('embedImage').value = embed.image.url || '';
+            }
+
+            // Also update JSON editor
+            document.getElementById('jsonEditor').value = JSON.stringify(data, null, 2);
+            showToast('Preset Loaded');
+        }
+
+        // --- Editor Logic ---
+        function switchTab(mode) {
+            state.editorMode = mode;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            // Activate
+            document.querySelector(`.tab[onclick="switchTab('${mode}')"]`).classList.add('active');
+            document.getElementById(`tab-${mode}`).classList.add('active');
+
+            // Sync data
+            if(mode === 'json') {
+                const payload = buildPayloadFromVisual();
+                document.getElementById('jsonEditor').value = JSON.stringify(payload, null, 2);
+            }
+        }
+
+        function toggleUrlVisibility() {
+            const input = document.getElementById('webhookUrl');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function clearFields() {
+            document.getElementById('msgContent').value = '';
+            document.getElementById('embedTitle').value = '';
+            document.getElementById('embedDesc').value = '';
+            document.getElementById('embedFooter').value = '';
+            document.getElementById('embedImage').value = '';
+        }
+
+        function formatJSON() {
+            try {
+                const val = document.getElementById('jsonEditor').value;
+                const obj = JSON.parse(val);
+                document.getElementById('jsonEditor').value = JSON.stringify(obj, null, 2);
+            } catch(e) {
+                showToast("Invalid JSON", true);
+            }
+        }
+
+        // --- Payload Builder ---
+        function buildPayloadFromVisual() {
+            const content = document.getElementById('msgContent').value;
+            const username = document.getElementById('msgUsername').value;
+            const avatar = document.getElementById('msgAvatar').value;
+            
+            const eTitle = document.getElementById('embedTitle').value;
+            const eDesc = document.getElementById('embedDesc').value;
+            const eColor = document.getElementById('embedColor').value;
+            const eFooter = document.getElementById('embedFooter').value;
+            const eImage = document.getElementById('embedImage').value;
+
+            const payload = {};
+            if(content) payload.content = content;
+            if(username) payload.username = username;
+            if(avatar) payload.avatar_url = avatar;
+
+            if(eTitle || eDesc) {
+                const embed = {};
+                if(eTitle) embed.title = eTitle;
+                if(eDesc) embed.description = eDesc;
+                if(eColor) embed.color = parseInt(eColor.replace('#', ''), 16);
+                if(eFooter) embed.footer = { text: eFooter };
+                if(eImage) embed.image = { url: eImage };
+                payload.embeds = [embed];
+            }
+            return payload;
+        }
+
+        function buildPayload() {
+            if(state.editorMode === 'json') {
+                try {
+                    return JSON.parse(document.getElementById('jsonEditor').value);
+                } catch(e) {
+                    showToast("JSON Error", true);
+                    return null;
+                }
+            } else {
+                return buildPayloadFromVisual();
+            }
+        }
+
+        // --- API Interaction ---
+        async function sendMessage() {
+            const url = document.getElementById('webhookUrl').value;
+            if(!url) return showToast("Missing Webhook URL", true);
+
+            const payload = buildPayload();
+            if(!payload) return;
+
+            const btn = document.querySelector('button[onclick="sendMessage()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if(response.ok) {
+                    showToast("Message Sent!");
+                } else {
+                    showToast(`Error: ${response.status}`, true);
+                }
+            } catch(error) {
+                showToast("Network Error", true);
+                console.error(error);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // --- Utilities ---
+        function showToast(msg, isError = false) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.borderLeftColor = isError ? '#ef4444' : 'var(--primary)';
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        function nukeStorage() {
+            if(confirm("Are you sure? This deletes all saved webhooks and presets.")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
