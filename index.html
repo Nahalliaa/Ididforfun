@@ -1,4 +1,3 @@
-— By lovely
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ARCWEBHOOK</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
@@ -15,11 +15,34 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             min-height: 100vh;
             padding: 20px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
         }
 
         .container {
             max-width: 900px;
             margin: 0 auto;
+            animation: slideUp 0.6s ease;
         }
 
         header {
@@ -29,6 +52,7 @@
             margin-bottom: 40px;
             padding-bottom: 20px;
             border-bottom: 1px solid #222;
+            animation: slideUp 0.6s ease 0.1s backwards;
         }
 
         .logo {
@@ -36,6 +60,11 @@
             font-weight: 700;
             color: #fff;
             letter-spacing: -0.5px;
+            transition: transform 0.3s ease;
+        }
+
+        .logo:hover {
+            transform: scale(1.05);
         }
 
         .actions {
@@ -53,11 +82,14 @@
             font-size: 14px;
             font-family: inherit;
             outline: none;
-            transition: border-color 0.2s;
+            transition: all 0.3s ease;
         }
 
         input:focus, textarea:focus {
             border-color: #555;
+            background: #1a1a1a;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
         textarea {
@@ -76,13 +108,40 @@
             cursor: pointer;
             font-weight: 600;
             font-size: 14px;
-            transition: opacity 0.2s;
+            transition: all 0.3s ease;
             display: inline-flex;
             align-items: center;
             gap: 6px;
+            position: relative;
+            overflow: hidden;
         }
 
-        button:hover { opacity: 0.85; }
+        button::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.1);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        button:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        button:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
         
         button.ghost {
             background: transparent;
@@ -93,6 +152,8 @@
         button.ghost:hover {
             border-color: #555;
             color: #e5e5e5;
+            background: rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
         }
 
         .section {
@@ -101,6 +162,16 @@
             border-radius: 8px;
             padding: 24px;
             margin-bottom: 20px;
+            animation: slideUp 0.6s ease backwards;
+            transition: all 0.3s ease;
+        }
+
+        .section:nth-child(2) { animation-delay: 0.2s; }
+        .section:nth-child(3) { animation-delay: 0.3s; }
+
+        .section:hover {
+            border-color: #333;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
         }
 
         .section-title {
@@ -114,7 +185,12 @@
 
         .field {
             margin-bottom: 16px;
+            animation: slideUp 0.4s ease backwards;
         }
+
+        .field:nth-child(1) { animation-delay: 0.05s; }
+        .field:nth-child(2) { animation-delay: 0.1s; }
+        .field:nth-child(3) { animation-delay: 0.15s; }
 
         .field:last-child {
             margin-bottom: 0;
@@ -125,6 +201,11 @@
             font-size: 13px;
             color: #999;
             margin-bottom: 6px;
+            transition: color 0.3s ease;
+        }
+
+        .field:focus-within label {
+            color: #fff;
         }
 
         .grid {
@@ -139,6 +220,26 @@
             gap: 8px;
             max-height: 200px;
             overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .webhook-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .webhook-list::-webkit-scrollbar-track {
+            background: #0a0a0a;
+            border-radius: 3px;
+        }
+
+        .webhook-list::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px;
+            transition: background 0.3s ease;
+        }
+
+        .webhook-list::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
 
         .webhook-item {
@@ -150,28 +251,38 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            transition: border-color 0.2s;
+            transition: all 0.3s ease;
             font-size: 14px;
+            animation: slideUp 0.3s ease backwards;
         }
 
         .webhook-item:hover {
             border-color: #444;
+            background: #141414;
+            transform: translateX(4px);
         }
 
         .webhook-item.active {
             border-color: #fff;
             background: #141414;
+            transform: scale(1.02);
         }
 
         .webhook-item .delete {
             color: #666;
             cursor: pointer;
             font-size: 14px;
-            transition: color 0.2s;
+            transition: all 0.3s ease;
+            opacity: 0;
+        }
+
+        .webhook-item:hover .delete {
+            opacity: 1;
         }
 
         .webhook-item .delete:hover {
             color: #e74c3c;
+            transform: scale(1.2);
         }
 
         .toast {
@@ -184,13 +295,15 @@
             border-radius: 6px;
             font-size: 14px;
             font-weight: 600;
-            transform: translateY(100px);
-            transition: transform 0.3s;
+            transform: translateX(400px);
+            transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
             z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
         }
         
         .toast.show {
-            transform: translateY(0);
+            transform: translateX(0);
+            animation: pulse 0.5s ease 0.4s;
         }
 
         .toast.error {
@@ -212,16 +325,36 @@
             font-size: 14px;
             font-weight: 600;
             border-bottom: 2px solid transparent;
-            transition: all 0.2s;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .tab::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: #fff;
+            transition: width 0.3s ease;
+        }
+
+        .tab:hover {
+            color: #999;
         }
 
         .tab.active {
             color: #fff;
-            border-bottom-color: #fff;
+        }
+
+        .tab.active::after {
+            width: 100%;
         }
 
         .tab-content {
             display: none;
+            animation: slideUp 0.4s ease;
         }
 
         .tab-content.active {
@@ -239,6 +372,11 @@
             height: 42px;
             padding: 4px;
             cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .color-input input[type="color"]:hover {
+            transform: scale(1.1);
         }
 
         .btn-group {
@@ -248,14 +386,18 @@
             margin-top: 20px;
         }
 
-        .upload-btn {
-            width: 42px;
-            padding: 10px;
-            justify-content: center;
+        .loading {
+            pointer-events: none;
+            opacity: 0.6;
         }
 
-        input[type="file"] {
-            display: none;
+        .loading i {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         @media (max-width: 768px) {
@@ -287,7 +429,7 @@
                 <button class="ghost" onclick="clearAll()">
                     <i class="fa-solid fa-trash"></i> Clear
                 </button>
-                <button onclick="sendMessage()">
+                <button onclick="sendMessage()" id="sendBtn">
                     <i class="fa-solid fa-paper-plane"></i> Send
                 </button>
             </div>
@@ -334,12 +476,7 @@
                     </div>
                     <div class="field">
                         <label>Avatar URL</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="text" id="msgAvatar" placeholder="https://..." style="flex: 1;">
-                            <button class="ghost upload-btn" onclick="uploadImage('msgAvatar')" title="Upload Image">
-                                <i class="fa-solid fa-plus"></i>
-                            </button>
-                        </div>
+                        <input type="text" id="msgAvatar" placeholder="https://...">
                     </div>
                 </div>
             </div>
@@ -368,12 +505,7 @@
                 </div>
                 <div class="field">
                     <label>Image URL</label>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="embedImage" placeholder="https://..." style="flex: 1;">
-                        <button class="ghost upload-btn" onclick="uploadImage('embedImage')" title="Upload Image">
-                            <i class="fa-solid fa-plus"></i>
-                        </button>
-                    </div>
+                    <input type="text" id="embedImage" placeholder="https://...">
                 </div>
             </div>
 
@@ -390,8 +522,6 @@
     </div>
 
     <div class="toast" id="toast"></div>
-    
-    <input type="file" id="imageUploader" accept="image/*">
 
     <script>
         let state = {
@@ -423,6 +553,7 @@
             state.webhooks.forEach((wh, idx) => {
                 const item = document.createElement('div');
                 item.className = 'webhook-item';
+                item.style.animationDelay = `${idx * 0.05}s`;
                 item.innerHTML = `
                     <span onclick="loadWebhook(${idx})">${wh.name}</span>
                     <i class="fa-solid fa-trash delete" onclick="deleteWebhook(${idx})"></i>
@@ -451,6 +582,12 @@
         function loadWebhook(idx) {
             const wh = state.webhooks[idx];
             document.getElementById('webhookUrl').value = wh.url;
+            
+            // Highlight active webhook
+            document.querySelectorAll('.webhook-item').forEach((item, i) => {
+                item.classList.toggle('active', i === idx);
+            });
+            
             showToast('Webhook loaded');
         }
 
@@ -537,6 +674,11 @@
                 return;
             }
             
+            const btn = document.getElementById('sendBtn');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner"></i> Sending...';
+            btn.classList.add('loading');
+            
             try {
                 const response = await fetch(url, {
                     method: 'POST',
@@ -551,6 +693,9 @@
                 }
             } catch(error) {
                 showToast('Network error', true);
+            } finally {
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('loading');
             }
         }
 
@@ -605,35 +750,6 @@
             content: "Hello World",
             embeds: []
         }, null, 2);
-
-        // Image Upload System
-        let currentUploadTarget = null;
-
-        function uploadImage(targetId) {
-            currentUploadTarget = targetId;
-            document.getElementById('imageUploader').click();
-        }
-
-        document.getElementById('imageUploader').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            if (!file.type.startsWith('image/')) {
-                showToast('Please select an image file', true);
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const base64 = event.target.result;
-                document.getElementById(currentUploadTarget).value = base64;
-                showToast('Image uploaded locally');
-            };
-            reader.readAsDataURL(file);
-            
-            // Reset file input
-            e.target.value = '';
-        });
     </script>
 </body>
 </html>
