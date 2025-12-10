@@ -1,495 +1,343 @@
--- Modern UI Library for Roblox
--- Easy-to-use widget system with Roblox-style transparency, colors, and smart dropdowns
+-- TopBar++ | Modern Hub Library
+-- Efficient, Icon-Smart, and Easy-to-use
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 
-local ModernUI = {}
-ModernUI.__index = ModernUI
+local TopBarPlus = {}
+TopBarPlus.__index = TopBarPlus
 
--- Creates a new UI instance
-function ModernUI.new()
-	local self = setmetatable({}, ModernUI)
+-- Theme Configuration
+local THEME = {
+	Background = Color3.fromRGB(25, 25, 30),
+	Hover = Color3.fromRGB(40, 40, 45),
+	Text = Color3.fromRGB(240, 240, 240),
+	SubText = Color3.fromRGB(180, 180, 180),
+	CornerRadius = UDim.new(0, 8),
+	IconSize = UDim2.fromOffset(20, 20),
+	WidgetSize = UDim2.fromOffset(40, 40)
+}
+
+--// Helper: Apply Icon (Text or Image)
+local function ApplyIcon(parent, content)
+	local display
+	
+	-- Determine type (ID, URL, or Text)
+	local isImage = false
+	if type(content) == "number" then
+		content = "rbxassetid://" .. content
+		isImage = true
+	elseif type(content) == "string" then
+		if content:match("^rbxasset") or content:match("^http") then
+			isImage = true
+		elseif content:match("^%d+$") then -- String containing only numbers
+			content = "rbxassetid://" .. content
+			isImage = true
+		end
+	end
+
+	if isImage then
+		display = Instance.new("ImageLabel")
+		display.Image = content
+		display.BackgroundTransparency = 1
+		display.Size = THEME.IconSize
+		display.AnchorPoint = Vector2.new(0.5, 0.5)
+		display.Position = UDim2.fromScale(0.5, 0.5)
+		display.ScaleType = Enum.ScaleType.Fit
+	else
+		display = Instance.new("TextLabel")
+		display.Text = content
+		display.BackgroundTransparency = 1
+		display.Size = UDim2.fromScale(1, 1)
+		display.Font = Enum.Font.GothamBold
+		display.TextSize = 18
+		display.TextColor3 = THEME.Text
+	end
+	
+	display.Name = "Icon"
+	display.Parent = parent
+	return display
+end
+
+--// Constructor
+function TopBarPlus.new()
+	local self = setmetatable({}, TopBarPlus)
 	
 	local player = Players.LocalPlayer
 	local playerGui = player:WaitForChild("PlayerGui")
 	
-	-- Check if already exists
-	if playerGui:FindFirstChild("ModernUI") then
-		StarterGui:SetCore("SendNotification", {
-			Title = "ModernUI",
-			Text = "GUI already loaded.",
-			Duration = 4
-		})
-		return nil
-	end
+	-- Cleanup old instances
+	if playerGui:FindFirstChild("TopBarPlus") then playerGui.TopBarPlus:Destroy() end
 	
-	-- Create ScreenGui
-	self.gui = Instance.new("ScreenGui")
-	self.gui.Name = "ModernUI"
-	self.gui.ResetOnSpawn = false
-	self.gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	self.gui.ScreenInsets = Enum.ScreenInsets.TopbarSafeInsets
-	self.gui.Parent = playerGui
+	-- Main GUI
+	self.Gui = Instance.new("ScreenGui")
+	self.Gui.Name = "TopBarPlus"
+	self.Gui.ResetOnSpawn = false
+	self.Gui.ScreenInsets = Enum.ScreenInsets.TopbarSafeInsets
+	self.Gui.Parent = playerGui
 	
-	-- Create container
-	self.container = Instance.new("Frame")
-	self.container.Size = UDim2.new(0, 0, 0, 44)
-	self.container.Position = UDim2.new(1, -11, 0, 11)
-	self.container.AnchorPoint = Vector2.new(1, 0)
-	self.container.BackgroundTransparency = 1
-	self.container.Parent = self.gui
+	-- Dropdown Overlay (High ZIndex)
+	self.Overlay = Instance.new("Frame")
+	self.Overlay.Name = "DropdownOverlay"
+	self.Overlay.Size = UDim2.fromScale(1, 1)
+	self.Overlay.BackgroundTransparency = 1
+	self.Overlay.Visible = false
+	self.Overlay.ZIndex = 100
+	self.Overlay.Parent = self.Gui
+
+	-- Close shield
+	local shield = Instance.new("TextButton")
+	shield.Size = UDim2.fromScale(1, 1)
+	shield.BackgroundTransparency = 1
+	shield.Text = ""
+	shield.Parent = self.Overlay
+	shield.MouseButton1Click:Connect(function() self:CloseDropdown() end)
+
+	-- Container
+	self.Container = Instance.new("Frame")
+	self.Container.Name = "Container"
+	self.Container.Size = UDim2.fromOffset(0, 44)
+	self.Container.Position = UDim2.new(1, -12, 0, 4)
+	self.Container.AnchorPoint = Vector2.new(1, 0)
+	self.Container.BackgroundTransparency = 1
+	self.Container.Parent = self.Gui
 	
 	-- Layout
-	self.layout = Instance.new("UIListLayout")
-	self.layout.FillDirection = Enum.FillDirection.Horizontal
-	self.layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-	self.layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	self.layout.Padding = UDim.new(0, 12)
-	self.layout.Parent = self.container
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	layout.Padding = UDim.new(0, 8)
+	layout.Parent = self.Container
 	
-	-- Auto-resize container based on content
-	self.layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		self.container.Size = UDim2.new(0, self.layout.AbsoluteContentSize.X, 0, 44)
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		self.Container.Size = UDim2.new(0, layout.AbsoluteContentSize.X, 0, 44)
 	end)
-	
-	-- Setup dragging
-	self:setupDragging()
-	
-	-- Setup dropdown system
-	self:setupDropdownSystem()
+
+	self.ActiveDropdown = nil
+	self:SetupDragging()
 	
 	return self
 end
 
--- Setup drag functionality
-function ModernUI:setupDragging()
-	local dragging, dragStart, startPos, dragInput
+--// Internal: Create Widget Frame
+function TopBarPlus:_CreateBase(width)
+	local frame = Instance.new("Frame")
+	frame.Size = UDim2.fromOffset(width, 40)
+	frame.BackgroundColor3 = THEME.Background
+	frame.BackgroundTransparency = 0.2
+	frame.Parent = self.Container
 	
-	self.container.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = true
-			dragStart = input.Position
-			startPos = self.container.Position
-			dragInput = input
-		end
-	end)
-	
-	UserInputService.InputChanged:Connect(function(input)
-		if input == dragInput and dragging then
-			local delta = input.Position - dragStart
-			self.container.Position = UDim2.new(
-				startPos.X.Scale,
-				startPos.X.Offset + delta.X,
-				startPos.Y.Scale,
-				startPos.Y.Offset + delta.Y
-			)
-		end
-	end)
-	
-	UserInputService.InputEnded:Connect(function(input)
-		if input == dragInput then
-			dragging = false
-		end
-	end)
-end
-
--- Setup dropdown system
-function ModernUI:setupDropdownSystem()
-	local player = Players.LocalPlayer
-	local playerGui = player:WaitForChild("PlayerGui")
-	
-	-- Create dedicated dropdown container
-	self.dropdownGui = Instance.new("ScreenGui")
-	self.dropdownGui.Name = "ModernUI_Dropdowns"
-	self.dropdownGui.DisplayOrder = 100
-	self.dropdownGui.ResetOnSpawn = false
-	self.dropdownGui.Parent = playerGui
-	
-	-- Invisible click shield to detect outside clicks
-	self.clickShield = Instance.new("TextButton")
-	self.clickShield.Name = "ClickShield"
-	self.clickShield.Size = UDim2.fromScale(1, 1)
-	self.clickShield.BackgroundTransparency = 1
-	self.clickShield.Text = ""
-	self.clickShield.Visible = false
-	self.clickShield.Parent = self.dropdownGui
-	
-	self.currentDropdown = nil
-	self.closeCurrentDropdown = nil
-	
-	-- Click shield listener
-	self.clickShield.MouseButton1Click:Connect(function()
-		if self.closeCurrentDropdown then
-			self.closeCurrentDropdown()
-		end
-	end)
-end
-
--- Create dropdown with smart positioning
-function ModernUI:createDropdown(attachButton, options, config)
-	config = config or {}
-	local width = config.Width or 180
-	local itemHeight = config.ItemHeight or 32
-	
-	-- Dropdown Frame
-	local dropdown = Instance.new("Frame")
-	dropdown.Name = "DropdownFrame"
-	dropdown.Size = UDim2.fromOffset(width, 0)
-	dropdown.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-	dropdown.BorderSizePixel = 0
-	dropdown.ClipsDescendants = true
-	dropdown.Visible = false
-	dropdown.Parent = self.dropdownGui
-	
-	-- Styling
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 8)
-	corner.Parent = dropdown
+	corner.CornerRadius = THEME.CornerRadius
+	corner.Parent = frame
 	
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(60, 60, 65)
+	stroke.Color = Color3.new(1,1,1)
+	stroke.Transparency = 0.9
 	stroke.Thickness = 1
-	stroke.Transparency = 0.5
-	stroke.Parent = dropdown
+	stroke.Parent = frame
 	
-	-- Shadow effect
-	local shadow = Instance.new("ImageLabel")
-	shadow.Name = "Shadow"
-	shadow.BackgroundTransparency = 1
-	shadow.Position = UDim2.fromOffset(-15, -15)
-	shadow.Size = UDim2.fromScale(1, 1) + UDim2.fromOffset(30, 30)
-	shadow.ZIndex = dropdown.ZIndex - 1
-	shadow.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-	shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-	shadow.ImageTransparency = 0.7
-	shadow.ScaleType = Enum.ScaleType.Slice
-	shadow.SliceCenter = Rect.new(10, 10, 118, 118)
-	shadow.Parent = dropdown
+	return frame
+end
+
+--// Internal: Hover Animation
+function TopBarPlus:_BindHover(button)
+	button.MouseEnter:Connect(function()
+		TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = THEME.Hover}):Play()
+	end)
+	button.MouseLeave:Connect(function()
+		TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.new(0,0,0), BackgroundTransparency = 1}):Play()
+	end)
+end
+
+--// Feature: Add Widget (Single Button)
+-- options: { Text = "Desc", Callback = func, Dropdown = {} }
+function TopBarPlus:AddWidget(icon, options)
+	options = options or {}
+	local frame = self:_CreateBase(40)
 	
-	-- List Layout
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.fromScale(1, 1)
+	btn.BackgroundTransparency = 1
+	btn.Text = ""
+	btn.Parent = frame
+	
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = THEME.CornerRadius
+	corner.Parent = btn
+
+	ApplyIcon(btn, icon)
+	self:_BindHover(btn)
+	
+	if options.Dropdown then
+		btn.MouseButton1Click:Connect(function()
+			self:ToggleDropdown(frame, options.Dropdown)
+		end)
+	elseif options.Callback then
+		btn.MouseButton1Click:Connect(options.Callback)
+	end
+	
+	return btn
+end
+
+--// Feature: Add Group (Multiple Buttons)
+function TopBarPlus:AddGroup(widgets)
+	local count = #widgets
+	local frame = self:_CreateBase(count * 40)
+	
+	-- Divider lines
+	for i = 1, count - 1 do
+		local line = Instance.new("Frame")
+		line.Size = UDim2.new(0, 1, 0.6, 0)
+		line.Position = UDim2.new(i/count, 0, 0.2, 0)
+		line.BackgroundColor3 = Color3.new(1,1,1)
+		line.BackgroundTransparency = 0.8
+		line.BorderSizePixel = 0
+		line.ZIndex = 2
+		line.Parent = frame
+	end
+	
+	for i, widget in ipairs(widgets) do
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(1/count, 0, 1, 0)
+		btn.Position = UDim2.new((i-1)/count, 0, 0, 0)
+		btn.BackgroundTransparency = 1
+		btn.Text = ""
+		btn.Parent = frame
+		
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = THEME.CornerRadius
+		corner.Parent = btn
+		
+		ApplyIcon(btn, widget.Icon)
+		self:_BindHover(btn)
+		
+		if widget.Dropdown then
+			btn.MouseButton1Click:Connect(function()
+				self:ToggleDropdown(btn, widget.Dropdown) -- Attach to btn, not frame
+			end)
+		elseif widget.Callback then
+			btn.MouseButton1Click:Connect(widget.Callback)
+		end
+	end
+end
+
+--// System: Dropdowns
+function TopBarPlus:ToggleDropdown(attachTo, items)
+	if self.ActiveDropdown and self.ActiveDropdown.Adornee == attachTo then
+		self:CloseDropdown()
+		return
+	end
+	self:CloseDropdown()
+	
+	local width = 160
+	local listHeight = (#items * 32) + 8
+	
+	local dropFrame = Instance.new("Frame")
+	dropFrame.Size = UDim2.fromOffset(width, 0) -- Start height 0
+	dropFrame.BackgroundColor3 = THEME.Background
+	dropFrame.ClipsDescendants = true
+	dropFrame.Parent = self.Overlay
+	
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = THEME.CornerRadius
+	corner.Parent = dropFrame
+	
 	local list = Instance.new("UIListLayout")
-	list.Padding = UDim.new(0, 4)
+	list.Padding = UDim.new(0, 2)
 	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	list.SortOrder = Enum.SortOrder.LayoutOrder
-	list.Parent = dropdown
+	list.Parent = dropFrame
 	
 	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 6)
-	padding.PaddingBottom = UDim.new(0, 6)
-	padding.PaddingLeft = UDim.new(0, 6)
-	padding.PaddingRight = UDim.new(0, 6)
-	padding.Parent = dropdown
+	padding.PaddingTop = UDim.new(0, 4)
+	padding.PaddingBottom = UDim.new(0, 4)
+	padding.Parent = dropFrame
 	
-	-- Calculate total height
-	local totalHeight = 12
+	-- Calculate Position
+	local absPos = attachTo.AbsolutePosition
+	local absSize = attachTo.AbsoluteSize
+	local finalX = absPos.X + absSize.X - width
+	local finalY = absPos.Y + absSize.Y + 6
 	
-	-- Create option buttons
-	for i, opt in ipairs(options) do
+	dropFrame.Position = UDim2.fromOffset(finalX, finalY)
+	
+	-- Create Items
+	for _, item in ipairs(items) do
 		local btn = Instance.new("TextButton")
-		btn.Name = "Option_" .. i
-		btn.Size = UDim2.new(1, -12, 0, itemHeight)
-		btn.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-		btn.Text = opt.Text or opt.text or "Option"
-		btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+		btn.Size = UDim2.new(1, -8, 0, 30)
+		btn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+		btn.Text = "  " .. (item.Text or item.Name or "Option")
 		btn.Font = Enum.Font.GothamMedium
 		btn.TextSize = 14
+		btn.TextColor3 = THEME.Text
+		btn.TextXAlignment = Enum.TextXAlignment.Left
 		btn.AutoButtonColor = false
-		btn.Parent = dropdown
+		btn.Parent = dropFrame
 		
 		local btnCorner = Instance.new("UICorner")
 		btnCorner.CornerRadius = UDim.new(0, 6)
 		btnCorner.Parent = btn
 		
-		totalHeight = totalHeight + itemHeight + 4
-		
-		-- Hover animations
+		-- Hover
 		btn.MouseEnter:Connect(function()
-			TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-				BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-			}):Play()
+			TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = THEME.Hover}):Play()
 		end)
-		
 		btn.MouseLeave:Connect(function()
-			TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-				BackgroundColor3 = Color3.fromRGB(40, 40, 45)
-			}):Play()
+			TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(35, 35, 40)}):Play()
 		end)
 		
-		-- Click handler
 		btn.MouseButton1Click:Connect(function()
-			if self.closeCurrentDropdown then
-				self.closeCurrentDropdown()
-			end
-			if opt.Callback or opt.callback then
-				(opt.Callback or opt.callback)()
-			end
+			self:CloseDropdown()
+			if item.Callback then task.spawn(item.Callback) end
 		end)
 	end
 	
-	totalHeight = totalHeight - 4
+	self.Overlay.Visible = true
+	self.ActiveDropdown = { Frame = dropFrame, Adornee = attachTo }
 	
-	-- Close function
-	local function close()
-		self.clickShield.Visible = false
-		local tween = TweenService:Create(dropdown, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
-			Size = UDim2.fromOffset(width, 0)
-		})
-		tween:Play()
-		tween.Completed:Connect(function()
-			dropdown.Visible = false
-		end)
-		self.currentDropdown = nil
-		self.closeCurrentDropdown = nil
-	end
+	TweenService:Create(dropFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = UDim2.fromOffset(width, listHeight)
+	}):Play()
+end
+
+function TopBarPlus:CloseDropdown()
+	if not self.ActiveDropdown then return end
 	
-	-- Open function with smart positioning
-	local function open()
-		if self.closeCurrentDropdown then
-			self.closeCurrentDropdown()
-		end
-		
-		local btnPos = attachButton.AbsolutePosition
-		local btnSize = attachButton.AbsoluteSize
-		local screenSize = self.dropdownGui.AbsoluteSize
-		
-		-- Calculate default position (below button, left-aligned)
-		local finalX = btnPos.X
-		local finalY = btnPos.Y + btnSize.Y + 6
-		
-		-- Smart positioning: adjust if dropdown goes off screen
-		
-		-- Right edge collision
-		if finalX + width > screenSize.X - 10 then
-			finalX = (btnPos.X + btnSize.X) - width
-		end
-		
-		-- Left edge collision
-		if finalX < 10 then
-			finalX = 10
-		end
-		
-		-- Bottom edge collision (flip to top)
-		if finalY + totalHeight > screenSize.Y - 10 then
-			finalY = btnPos.Y - totalHeight - 6
-		end
-		
-		-- Top edge collision (if flipped but still doesn't fit)
-		if finalY < 10 then
-			finalY = 10
-		end
-		
-		-- Apply position
-		dropdown.Position = UDim2.fromOffset(finalX, finalY)
-		dropdown.Visible = true
-		
-		self.clickShield.Visible = true
-		self.clickShield.ZIndex = dropdown.ZIndex - 1
-		
-		self.currentDropdown = dropdown
-		self.closeCurrentDropdown = close
-		
-		-- Animate open
-		TweenService:Create(dropdown, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			Size = UDim2.fromOffset(width, totalHeight)
-		}):Play()
-	end
+	local frame = self.ActiveDropdown.Frame
+	self.ActiveDropdown = nil
 	
-	-- Toggle dropdown on button click
-	attachButton.MouseButton1Click:Connect(function()
-		if self.currentDropdown == dropdown then
-			close()
-		else
-			open()
+	local tween = TweenService:Create(frame, TweenInfo.new(0.15), {Size = UDim2.fromOffset(frame.Size.X.Offset, 0)})
+	tween:Play()
+	tween.Completed:Connect(function()
+		frame:Destroy()
+		if not self.ActiveDropdown then self.Overlay.Visible = false end
+	end)
+end
+
+--// System: Draggable
+function TopBarPlus:SetupDragging()
+	local dragging, dragStart, startPos
+	
+	self.Container.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = true
+			dragStart = input.Position
+			startPos = self.Container.Position
 		end
 	end)
 	
-	return {
-		Open = open,
-		Close = close,
-		Dropdown = dropdown
-	}
-end
-
--- Creates a WidgetGroup (frame with multiple buttons)
-function ModernUI:WidgetGroup(icons)
-	if type(icons) ~= "table" or #icons == 0 then
-		warn("WidgetGroup requires a table with at least 1 icon")
-		return nil
-	end
-	
-	local buttonCount = #icons
-	local frameWidth = (buttonCount * 44)
-	
-	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(0, frameWidth, 0, 44)
-	frame.BackgroundTransparency = 0.1
-	frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-	frame.Active = true
-	frame.Parent = self.container
-	
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(1, 0)
-	corner.Parent = frame
-	
-	local buttons = {}
-	local buttonWidth = 1 / buttonCount
-	
-	for i, icon in ipairs(icons) do
-		local button = Instance.new("TextButton")
-		button.Size = UDim2.new(buttonWidth, 0, 1, 0)
-		button.Position = UDim2.new(buttonWidth * (i - 1), 0, 0, 0)
-		button.BackgroundTransparency = 1
-		button.Text = icon
-		button.Font = Enum.Font.GothamBold
-		button.TextScaled = true
-		button.TextColor3 = Color3.fromRGB(255, 255, 255)
-		button.Parent = frame
-		
-		-- Hover effect
-		button.MouseEnter:Connect(function()
-			TweenService:Create(button, TweenInfo.new(0.2), {
-				TextColor3 = Color3.fromRGB(200, 200, 200)
-			}):Play()
-		end)
-		button.MouseLeave:Connect(function()
-			TweenService:Create(button, TweenInfo.new(0.2), {
-				TextColor3 = Color3.fromRGB(255, 255, 255)
-			}):Play()
-		end)
-		
-		table.insert(buttons, button)
-	end
-	
-	return {
-		Frame = frame,
-		Buttons = buttons,
-		OnClick = function(index, callback)
-			if buttons[index] then
-				buttons[index].MouseButton1Click:Connect(callback)
-			end
-		end,
-		AddDropdown = function(index, options, config)
-			if buttons[index] then
-				return self:createDropdown(buttons[index], options, config)
-			end
+	UserInputService.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+			local delta = input.Position - dragStart
+			self.Container.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 		end
-	}
-end
-
--- Creates a WidgetItem (single button in its own frame)
-function ModernUI:WidgetItem(icon)
-	if type(icon) ~= "string" then
-		warn("WidgetItem requires an icon string")
-		return nil
-	end
-	
-	local frame = Instance.new("Frame")
-	frame.Size = UDim2.new(0, 44, 0, 44)
-	frame.BackgroundTransparency = 0.1
-	frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-	frame.Active = true
-	frame.Parent = self.container
-	
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(1, 0)
-	corner.Parent = frame
-	
-	local button = Instance.new("TextButton")
-	button.Size = UDim2.new(1, 0, 1, 0)
-	button.BackgroundTransparency = 1
-	button.Text = icon
-	button.Font = Enum.Font.GothamBold
-	button.TextScaled = true
-	button.TextColor3 = Color3.fromRGB(255, 255, 255)
-	button.Parent = frame
-	
-	-- Hover effect
-	button.MouseEnter:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.2), {
-			TextColor3 = Color3.fromRGB(200, 200, 200)
-		}):Play()
-	end)
-	button.MouseLeave:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.2), {
-			TextColor3 = Color3.fromRGB(255, 255, 255)
-		}):Play()
 	end)
 	
-	return {
-		Frame = frame,
-		Button = button,
-		OnClick = function(callback)
-			button.MouseButton1Click:Connect(callback)
-		end,
-		AddDropdown = function(options, config)
-			return self:createDropdown(button, options, config)
-		end
-	}
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+	end)
 end
 
--- Destroy the UI
-function ModernUI:Destroy()
-	if self.dropdownGui then
-		self.dropdownGui:Destroy()
-	end
-	if self.gui then
-		self.gui:Destroy()
-	end
-end
-
---[[
-═══════════════════════════════════════════════════════════════
-USAGE EXAMPLE
-═══════════════════════════════════════════════════════════════
-
-local ModernUI = require(script.ModernUI)
-
--- Create UI
-local ui = ModernUI.new()
-if not ui then return end
-
--- Group with dropdowns
-local settingsGroup = ui:WidgetGroup({"⚙️", "⭐"})
-
--- Add dropdown to first button
-settingsGroup.AddDropdown(1, {
-	{ Text = "Graphics Low", Callback = function() print("Low GFX") end },
-	{ Text = "Graphics High", Callback = function() print("High GFX") end }
-})
-
--- Add dropdown to second button
-settingsGroup.AddDropdown(2, {
-	{ Text = "Skin: Default", Callback = function() print("Default") end },
-	{ Text = "Skin: Gold", Callback = function() print("Gold") end }
-})
-
--- Single widget with dropdown
-local addButton = ui:WidgetItem("➕")
-addButton.AddDropdown({
-	{ Text = "Create New", Callback = function() print("Create") end },
-	{ Text = "Load File", Callback = function() print("Load") end }
-})
-
--- Another group
-local toolsGroup = ui:WidgetGroup({"🧩", "📌"})
-toolsGroup.AddDropdown(1, {
-	{ Text = "Hammer", Callback = function() print("Hammer") end },
-	{ Text = "Wrench", Callback = function() print("Wrench") end }
-})
-
--- Custom dropdown width
-toolsGroup.AddDropdown(2, {
-	{ Text = "Pin Tool", Callback = function() print("Pin") end },
-	{ Text = "Unpin All", Callback = function() print("Unpin") end }
-}, { Width = 200 })
-
--- Manual click handlers (without dropdowns)
-settingsGroup.OnClick(1, function() print("Settings!") end)
-addButton.OnClick(function() print("Add!") end)
-
-]]
-
-return ModernUI
+return TopBarPlus
