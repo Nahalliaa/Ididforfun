@@ -1,5 +1,6 @@
 -- // LOVELY HUB UI LIBRARY // --
 -- // Mobile Optimized & Modular // --
+-- // Updated with Dropdowns, Input & Scroll Fixes // --
 
 local Library = {}
 local TweenService = game:GetService("TweenService")
@@ -69,11 +70,13 @@ end
 
 -- // Library Functions
 function Library:Notify(text, duration)
-    game.StarterGui:SetCore("SendNotification", {
-        Title = "Lovely Hub";
-        Text = text;
-        Duration = duration or 3;
-    })
+    pcall(function()
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Lovely Hub";
+            Text = text;
+            Duration = duration or 3;
+        })
+    end)
 end
 
 function Library:CreateWindow(config)
@@ -89,7 +92,16 @@ function Library:CreateWindow(config)
     ScreenGui.Name = "Lovely_Hub_Lib"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = CoreGui
+    
+    -- Protect GUI
+    if gethui then
+        ScreenGui.Parent = gethui()
+    elseif syn and syn.protect_gui then 
+        syn.protect_gui(ScreenGui)
+        ScreenGui.Parent = CoreGui
+    else
+        ScreenGui.Parent = CoreGui
+    end
     
     -- Toggle Button
     local IconBtn = Instance.new("TextButton")
@@ -150,14 +162,23 @@ function Library:CreateWindow(config)
     SubLabel.BackgroundTransparency = 1
     SubLabel.TextXAlignment = Enum.TextXAlignment.Left
     
-    local TabContainer = Instance.new("Frame", Sidebar)
+    -- // SCROLLABLE TAB CONTAINER FIX
+    local TabContainer = Instance.new("ScrollingFrame", Sidebar)
     TabContainer.Size = UDim2.new(1, 0, 1, -60)
     TabContainer.Position = UDim2.new(0, 0, 0, 60)
     TabContainer.BackgroundTransparency = 1
+    TabContainer.ScrollBarThickness = 2
+    TabContainer.ScrollBarImageColor3 = Library.Colors.Primary
+    TabContainer.BorderSizePixel = 0
+    TabContainer.CanvasSize = UDim2.new(0,0,0,0)
     
     local TabList = Instance.new("UIListLayout", TabContainer)
     TabList.SortOrder = Enum.SortOrder.LayoutOrder
     TabList.Padding = UDim.new(0, 2)
+    
+    TabList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        TabContainer.CanvasSize = UDim2.new(0, 0, 0, TabList.AbsoluteContentSize.Y + 10)
+    end)
 
     local ContentFrame = Instance.new("Frame", MainFrame)
     ContentFrame.Size = UDim2.new(1, -120, 1, -10)
@@ -215,6 +236,7 @@ function Library:CreateWindow(config)
         Page.ScrollBarThickness = 2
         Page.Visible = false
         Page.CanvasSize = UDim2.new(0,0,0,0)
+        Page.ScrollBarImageColor3 = Library.Colors.Primary
         
         local Layout = Instance.new("UIListLayout", Page)
         Layout.Padding = UDim.new(0, 6)
@@ -250,7 +272,8 @@ function Library:CreateWindow(config)
             Activate()
         end
 
-        -- // Elements
+        -- // Elements //
+        
         function Tab:CreateSection(text)
             local Sec = Instance.new("TextLabel", Page)
             Sec.Size = UDim2.new(1, 0, 0, 24)
@@ -412,6 +435,125 @@ function Library:CreateWindow(config)
             end)
         end
 
+        -- // NEW INPUT BOX
+        function Tab:CreateInput(text, placeholder, callback)
+            local Container = Instance.new("Frame", Page)
+            Container.Size = UDim2.new(1, 0, 0, 50)
+            Container.BackgroundColor3 = Library.Colors.ElementBG
+            createCorner(Container, 8)
+
+            local Title = Instance.new("TextLabel", Container)
+            Title.Size = UDim2.new(1, -20, 0, 20)
+            Title.Position = UDim2.new(0, 10, 0, 5)
+            Title.BackgroundTransparency = 1
+            Title.Text = text
+            Title.Font = Enum.Font.GothamMedium
+            Title.TextColor3 = Library.Colors.TextDim
+            Title.TextSize = 12
+            Title.TextXAlignment = Enum.TextXAlignment.Left
+
+            local InputFrame = Instance.new("Frame", Container)
+            InputFrame.Size = UDim2.new(1, -20, 0, 20)
+            InputFrame.Position = UDim2.new(0, 10, 0, 25)
+            InputFrame.BackgroundColor3 = Library.Colors.Sidebar
+            createCorner(InputFrame, 4)
+            createStroke(InputFrame, Library.Colors.Stroke, 1)
+
+            local TextBox = Instance.new("TextBox", InputFrame)
+            TextBox.Size = UDim2.new(1, -10, 1, 0)
+            TextBox.Position = UDim2.new(0, 5, 0, 0)
+            TextBox.BackgroundTransparency = 1
+            TextBox.Text = ""
+            TextBox.PlaceholderText = placeholder or "Type here..."
+            TextBox.PlaceholderColor3 = Color3.fromRGB(100, 100, 100)
+            TextBox.TextColor3 = Library.Colors.Text
+            TextBox.Font = Enum.Font.Gotham
+            TextBox.TextSize = 12
+            TextBox.TextXAlignment = Enum.TextXAlignment.Left
+
+            TextBox.FocusLost:Connect(function()
+                if callback then callback(TextBox.Text) end
+                tween(InputFrame, {BackgroundColor3 = Library.Colors.Sidebar}, 0.2)
+            end)
+            
+            TextBox.Focused:Connect(function()
+                tween(InputFrame, {BackgroundColor3 = Color3.fromRGB(40,40,45)}, 0.2)
+            end)
+        end
+
+        -- // NEW DROPDOWN
+        function Tab:CreateDropdown(text, options, callback)
+            local Dropdown = {}
+            local dropped = false
+            
+            local Container = Instance.new("Frame", Page)
+            Container.Size = UDim2.new(1, 0, 0, 36)
+            Container.BackgroundColor3 = Library.Colors.ElementBG
+            Container.ClipsDescendants = true
+            createCorner(Container, 8)
+            
+            local Title = Instance.new("TextLabel", Container)
+            Title.Size = UDim2.new(1, -30, 0, 36)
+            Title.Position = UDim2.new(0, 10, 0, 0)
+            Title.BackgroundTransparency = 1
+            Title.Text = text .. " : " .. (options[1] or "Select")
+            Title.Font = Enum.Font.GothamMedium
+            Title.TextColor3 = Library.Colors.TextDim
+            Title.TextSize = 12
+            Title.TextXAlignment = Enum.TextXAlignment.Left
+            
+            local Arrow = Instance.new("ImageLabel", Container)
+            Arrow.Size = UDim2.new(0, 20, 0, 20)
+            Arrow.Position = UDim2.new(1, -25, 0, 8)
+            Arrow.BackgroundTransparency = 1
+            Arrow.Image = "rbxassetid://6034818372" -- Down Arrow
+            Arrow.ImageColor3 = Library.Colors.TextDim
+            
+            local Button = Instance.new("TextButton", Container)
+            Button.Size = UDim2.new(1, 0, 0, 36)
+            Button.BackgroundTransparency = 1
+            Button.Text = ""
+            
+            local List = Instance.new("Frame", Container)
+            List.Size = UDim2.new(1, -20, 0, 0)
+            List.Position = UDim2.new(0, 10, 0, 36)
+            List.BackgroundTransparency = 1
+            
+            local ListLayout = Instance.new("UIListLayout", List)
+            ListLayout.Padding = UDim.new(0, 2)
+            ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            
+            -- Fill Options
+            for _, option in pairs(options) do
+                local OptBtn = Instance.new("TextButton", List)
+                OptBtn.Size = UDim2.new(1, 0, 0, 24)
+                OptBtn.BackgroundColor3 = Library.Colors.Sidebar
+                OptBtn.Text = option
+                OptBtn.Font = Enum.Font.Gotham
+                OptBtn.TextColor3 = Library.Colors.TextDim
+                OptBtn.TextSize = 12
+                createCorner(OptBtn, 4)
+                
+                OptBtn.MouseButton1Click:Connect(function()
+                    Title.Text = text .. " : " .. option
+                    if callback then callback(option) end
+                    -- Close
+                    dropped = false
+                    tween(Container, {Size = UDim2.new(1, 0, 0, 36)}, 0.2)
+                    tween(Arrow, {Rotation = 0}, 0.2)
+                end)
+            end
+            
+            Button.MouseButton1Click:Connect(function()
+                dropped = not dropped
+                local contentSize = ListLayout.AbsoluteContentSize.Y
+                local newSize = dropped and (contentSize + 46) or 36
+                
+                tween(Container, {Size = UDim2.new(1, 0, 0, newSize)}, 0.2)
+                tween(Arrow, {Rotation = dropped and 180 or 0}, 0.2)
+            end)
+        end
+
         return Tab
     end
     
@@ -421,3 +563,5 @@ function Library:CreateWindow(config)
     
     return Window
 end
+
+return Library
