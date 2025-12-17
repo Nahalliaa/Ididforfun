@@ -11,7 +11,11 @@ Library.Theme = {
 	SecondaryColor = Color3.fromRGB(25, 25, 25),
 	TextColor = Color3.fromRGB(235, 255, 103),
 	TextSelected = Color3.fromRGB(10, 10, 10),
-	ToggleCheck = Color3.fromRGB(20, 20, 20),
+	
+	--// EDITED: Separated Toggle Settings //--
+	ToggleOn = Color3.fromRGB(255, 217, 78),  -- Color when enabled
+	ToggleOff = Color3.fromRGB(20, 20, 20),   -- Color of the box background
+	
 	Gradient1 = Color3.fromRGB(46, 43, 0),
 	Gradient2 = Color3.fromRGB(6, 6, 6),
 }
@@ -37,8 +41,12 @@ task.spawn(function()
 			local color = Color3.fromHSV(hue, 0.8, 1)
 			Library.Theme.MainColor = color
 			
+			-- Optional: If you want Toggles to also be rainbow, uncomment the line below:
+			-- Library.Theme.ToggleOn = color 
+
 			for _, reg in pairs(Library.ThemeObjects) do
-				if reg.Key == "MainColor" and reg.Obj then
+				-- Updates MainColor and ToggleOn if you set it to rainbow
+				if (reg.Key == "MainColor" or (Library.RainbowMode and reg.Key == "ToggleOn")) and reg.Obj then
 					TweenService:Create(reg.Obj, TweenInfo.new(0.1), {[reg.Prop] = color}):Play()
 				end
 			end
@@ -115,7 +123,7 @@ function Library:CreateWindow(titleText)
 	MainFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	MainFrame.Position = UDim2.new(0.5, -230, 0.5, -125)
 	MainFrame.Size = UDim2.new(0, 461, 0, 251)
-	MainFrame.ClipsDescendants = true -- Important for minimize animation
+	MainFrame.ClipsDescendants = true
 	
 	-- Intro Animation
 	MainFrame.Size = UDim2.new(0, 461, 0, 0)
@@ -158,7 +166,7 @@ function Library:CreateWindow(titleText)
 	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	Library:AddToRegistry(TitleLabel, "TextColor3", "MainColor")
 
-	-- Buttons Container (Anchored Top-Right)
+	-- Buttons Container
 	local WindowButtons = Instance.new("Frame")
 	WindowButtons.Parent = TopBar
 	WindowButtons.BackgroundTransparency = 1
@@ -178,7 +186,7 @@ function Library:CreateWindow(titleText)
 	local MinBtn = Instance.new("ImageButton")
 	MinBtn.Parent = WindowButtons
 	MinBtn.BackgroundTransparency = 1
-	MinBtn.Position = UDim2.new(1, -54, 0, 0) -- Spacing
+	MinBtn.Position = UDim2.new(1, -54, 0, 0)
 	MinBtn.Size = UDim2.new(0, 24, 0, 24)
 	MinBtn.Image = "rbxassetid://80500837074519"
 	MinBtn.ImageColor3 = Theme.MainColor
@@ -224,15 +232,13 @@ function Library:CreateWindow(titleText)
 	PageStroke.Color = Theme.MainColor
 	Library:AddToRegistry(PageStroke, "Color", "MainColor")
 	
-	-- Close Logic
+	-- Close/Min Logic
 	CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 	
-	-- Minimize Logic
 	local minimized = false
 	MinBtn.MouseButton1Click:Connect(function()
 		minimized = not minimized
 		if minimized then
-			-- Fade out content
 			TabContainer.Visible = false
 			PageContainer.Visible = false
 			Divider.Visible = false
@@ -255,12 +261,25 @@ function Library:CreateWindow(titleText)
 		Library.RainbowMode = bool
 	end
 	
+	-- Update Main Color specifically
 	function Window:SetMainColor(color)
 		Library.RainbowMode = false
 		Library.Theme.MainColor = color
 		for _, reg in pairs(Library.ThemeObjects) do
 			if reg.Key == "MainColor" and reg.Obj then
 				TweenService:Create(reg.Obj, TweenInfo.new(0.3), {[reg.Prop] = color}):Play()
+			end
+		end
+	end
+	
+	--// NEW: Update any theme key (Use this to change Toggle colors) //--
+	function Window:UpdateThemeKey(key, color)
+		if Library.Theme[key] then
+			Library.Theme[key] = color
+			for _, reg in pairs(Library.ThemeObjects) do
+				if reg.Key == key and reg.Obj then
+					TweenService:Create(reg.Obj, TweenInfo.new(0.3), {[reg.Prop] = color}):Play()
+				end
 			end
 		end
 	end
@@ -288,14 +307,11 @@ function Library:CreateWindow(titleText)
 		local open = true
 		MobileBtn.MouseButton1Click:Connect(function()
 			open = not open
-			
-			-- Mobile Animation: Rotate Icon
 			TweenService:Create(MobileBtn, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Rotation = open and 0 or 180}):Play()
 			
 			if open then
 				MainFrame.Visible = true
 				MainFrame.BackgroundTransparency = 1
-				-- Smooth Fade In + Slide Up
 				MainFrame.Position = MainFrame.Position + UDim2.new(0,0,0,50)
 				
 				local fadeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0})
@@ -303,7 +319,6 @@ function Library:CreateWindow(titleText)
 				fadeTween:Play()
 				slideTween:Play()
 				
-				-- Ensure content is visible
 				for _, c in pairs(MainFrame:GetChildren()) do
 					if c:IsA("GuiObject") and c.Name ~= "UICorner" and c.Name ~= "UIStroke" and c.Name ~= "UIGradient" then
 						TweenService:Create(c, TweenInfo.new(0.3), {BackgroundTransparency = (c.Name == "TopBar" and 1 or c.Name == "Divider" and 0 or 0.9)}):Play()
@@ -313,14 +328,12 @@ function Library:CreateWindow(titleText)
 					end
 				end
 			else
-				-- Smooth Fade Out
 				local fadeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 1})
 				fadeTween:Play()
 				fadeTween.Completed:Connect(function()
 					if not open then MainFrame.Visible = false end
 				end)
 				
-				-- Hide content
 				for _, c in pairs(MainFrame:GetChildren()) do
 					if c:IsA("GuiObject") then
 						TweenService:Create(c, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
@@ -331,12 +344,6 @@ function Library:CreateWindow(titleText)
 				end
 			end
 		end)
-	end
-	
-	function Window:SetMobileButtonSize(sizeUDim2)
-		if MobileBtn then
-			TweenService:Create(MobileBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back), {Size = sizeUDim2}):Play()
-		end
 	end
 
 	--// Tab System //--
@@ -365,7 +372,6 @@ function Library:CreateWindow(titleText)
 		
 		addHoverEffect(TabBtn, TStroke)
 		
-		-- Tab Layout Logic
 		if not TabContainer:FindFirstChild("UIListLayout") then
 			local list = Instance.new("UIListLayout")
 			list.Parent = TabContainer
@@ -398,7 +404,6 @@ function Library:CreateWindow(titleText)
 		PPad.PaddingTop = UDim.new(0, 10)
 		PPad.PaddingBottom = UDim.new(0, 10)
 		
-		-- Switch Logic
 		TabBtn.MouseButton1Click:Connect(function()
 			for _, t in pairs(tabs) do
 				t.Page.Visible = false
@@ -417,8 +422,6 @@ function Library:CreateWindow(titleText)
 		
 		table.insert(tabs, {Btn = TabBtn, Page = Page})
 		
-		--// Elements //--
-		
 		local function CreateBaseFrame(height)
 			local F = Instance.new("Frame")
 			F.Parent = Page
@@ -436,7 +439,7 @@ function Library:CreateWindow(titleText)
 			return F
 		end
 
-		-- 1. Toggle
+		--// 1. Toggle (Updated for Separate Colors) //--
 		function Tab:CreateToggle(text, callback)
 			callback = callback or function() end
 			local toggled = false
@@ -455,18 +458,19 @@ function Library:CreateWindow(titleText)
 			
 			local CheckBg = Instance.new("Frame")
 			CheckBg.Parent = Frame
-			CheckBg.BackgroundColor3 = Theme.ToggleCheck
+			CheckBg.BackgroundColor3 = Theme.ToggleOff -- Using new separated key
 			CheckBg.Position = UDim2.new(0.88, 0, 0.5, -9)
 			CheckBg.Size = UDim2.new(0, 18, 0, 18)
 			Instance.new("UICorner", CheckBg).CornerRadius = UDim.new(0,4)
+			Library:AddToRegistry(CheckBg, "BackgroundColor3", "ToggleOff") -- Register it
 			
 			local CheckInd = Instance.new("Frame")
 			CheckInd.Parent = CheckBg
-			CheckInd.BackgroundColor3 = Theme.MainColor
+			CheckInd.BackgroundColor3 = Theme.ToggleOn -- Using new separated key
 			CheckInd.Size = UDim2.new(1,0,1,0)
-			CheckInd.BackgroundTransparency = 1
+			CheckInd.BackgroundTransparency = 1 -- Start hidden (Off)
 			Instance.new("UICorner", CheckInd).CornerRadius = UDim.new(0,4)
-			Library:AddToRegistry(CheckInd, "BackgroundColor3", "MainColor")
+			Library:AddToRegistry(CheckInd, "BackgroundColor3", "ToggleOn") -- Register it
 			
 			local Trigger = Instance.new("TextButton")
 			Trigger.Parent = Frame
@@ -476,6 +480,7 @@ function Library:CreateWindow(titleText)
 			
 			Trigger.MouseButton1Click:Connect(function()
 				toggled = not toggled
+				-- We just change transparency of the 'On' frame
 				local targetAlpha = toggled and 0 or 1
 				TweenService:Create(CheckInd, TweenInfo.new(0.2), {BackgroundTransparency = targetAlpha}):Play()
 				callback(toggled)
@@ -581,7 +586,7 @@ function Library:CreateWindow(titleText)
 			end)
 		end
 		
-		-- 4. Text Input (New)
+		-- 4. Text Input
 		function Tab:CreateInput(text, placeholder, callback)
 			callback = callback or function() end
 			local Frame = CreateBaseFrame(38)
@@ -616,13 +621,13 @@ function Library:CreateWindow(titleText)
 			end)
 		end
 
-		-- 5. Dropdown (New)
+		-- 5. Dropdown
 		function Tab:CreateDropdown(text, options, callback)
 			callback = callback or function() end
 			local isDropped = false
-			local dropHeight = 38 + (#options * 30) + 10 -- Dynamic height
+			local dropHeight = 38 + (#options * 30) + 10
 			
-			local Frame = CreateBaseFrame(38) -- Starts closed
+			local Frame = CreateBaseFrame(38)
 			Frame.ClipsDescendants = true
 			Frame.ZIndex = 2
 			
@@ -650,14 +655,13 @@ function Library:CreateWindow(titleText)
 			OptionContainer.Parent = Frame
 			OptionContainer.BackgroundTransparency = 1
 			OptionContainer.Position = UDim2.new(0, 0, 0, 40)
-			OptionContainer.Size = UDim2.new(1, 0, 0, 0) -- Auto fill
+			OptionContainer.Size = UDim2.new(1, 0, 0, 0)
 			
 			local OLayout = Instance.new("UIListLayout")
 			OLayout.Parent = OptionContainer
 			OLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 			OLayout.Padding = UDim.new(0, 2)
 			
-			-- Add Option Buttons
 			for _, optName in pairs(options) do
 				local OptBtn = Instance.new("TextButton")
 				OptBtn.Parent = OptionContainer
@@ -672,14 +676,12 @@ function Library:CreateWindow(titleText)
 				OptBtn.MouseButton1Click:Connect(function()
 					Label.Text = text .. ": " .. optName
 					callback(optName)
-					-- Close after select
 					isDropped = false
 					TweenService:Create(Frame, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 300, 0, 38)}):Play()
 					TweenService:Create(Arrow, TweenInfo.new(0.3), {Rotation = 0}):Play()
 				end)
 			end
 			
-			-- Trigger
 			local Trigger = Instance.new("TextButton")
 			Trigger.Parent = Frame
 			Trigger.BackgroundTransparency = 1
