@@ -24,7 +24,6 @@ local function addHoverEffect(guiObject, stroke, baseThickness)
 
 	local info = TweenInfo.new(0.15, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 	
-	-- Restored Hover Logic (Works on PC now)
 	guiObject.MouseEnter:Connect(function()
 		TweenService:Create(scale, info, {Scale = 1.02}):Play()
 		if stroke then TweenService:Create(stroke, info, {Thickness = baseThickness + 0.5}):Play() end
@@ -124,7 +123,7 @@ function Library:CreateWindow(titleText)
 	UIGradient.Rotation = 40
 	UIGradient.Parent = MainFrame
 
-	-- Top Bar
+	-- Top Bar Title
 	local TitleLabel = Instance.new("TextLabel")
 	TitleLabel.Parent = MainFrame
 	TitleLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -137,20 +136,26 @@ function Library:CreateWindow(titleText)
 	TitleLabel.TextSize = 18.000
 	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-	-- Close Button (X)
+	-- [FIX] Close Button (X)
 	local CloseBtn = Instance.new("ImageButton")
 	CloseBtn.Parent = MainFrame
 	CloseBtn.BackgroundTransparency = 1.000
-	CloseBtn.Position = UDim2.new(0.915, 0, 0.032, 0)
+	-- Anchor to Right-Center of the header area
+	CloseBtn.AnchorPoint = Vector2.new(1, 0.5)
+	-- Position: 10px from right edge, 20px down (Center of 40px header)
+	CloseBtn.Position = UDim2.new(1, -10, 0, 20)
 	CloseBtn.Size = UDim2.new(0, 30, 0, 24)
 	CloseBtn.Image = "rbxassetid://103094495394151"
 	CloseBtn.ImageColor3 = Theme.MainColor
 	
-	-- Minimize Button (-)
+	-- [FIX] Minimize Button (-)
 	local MinBtn = Instance.new("ImageButton")
 	MinBtn.Parent = MainFrame
 	MinBtn.BackgroundTransparency = 1.000
-	MinBtn.Position = UDim2.new(0.85, 0, 0.032, 0)
+	-- Anchor to Right-Center
+	MinBtn.AnchorPoint = Vector2.new(1, 0.5)
+	-- Position: 45px from right edge (10px gap + 30px close btn + 5px spacing)
+	MinBtn.Position = UDim2.new(1, -45, 0, 20)
 	MinBtn.Size = UDim2.new(0, 30, 0, 24)
 	MinBtn.Image = "rbxassetid://80500837074519"
 	MinBtn.ImageColor3 = Theme.MainColor
@@ -222,7 +227,7 @@ function Library:CreateWindow(titleText)
 		end
 	end)
 	
-	--// Mobile Button //--
+	--// Mobile Squircle Button //--
 	function Window:CreateMobileButton(iconId)
 		local MobileBtn = Instance.new("ImageButton")
 		MobileBtn.Name = "MobileToggle"
