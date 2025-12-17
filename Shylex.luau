@@ -1,9 +1,7 @@
 local Library = {}
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-local Players = game:GetService("Players")
 
 --// 1. Theme Configuration //--
 Library.Theme = {
@@ -26,9 +24,7 @@ local function addHoverEffect(guiObject, stroke, baseThickness)
 
 	local info = TweenInfo.new(0.15, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 	
-	-- Only apply hover scale if not on mobile (touch devices usually don't hover well)
-	if UserInputService.TouchEnabled then return end
-
+	-- Restored Hover Logic (Works on PC now)
 	guiObject.MouseEnter:Connect(function()
 		TweenService:Create(scale, info, {Scale = 1.02}):Play()
 		if stroke then TweenService:Create(stroke, info, {Thickness = baseThickness + 0.5}):Play() end
@@ -50,8 +46,7 @@ local function makeDraggable(frame, dragHandle)
 			startPos.X.Scale, startPos.X.Offset + delta.X,
 			startPos.Y.Scale, startPos.Y.Offset + delta.Y
 		)
-		-- Optional: Lerp for smoother dragging
-		TweenService:Create(frame, TweenInfo.new(0.1), {Position = newPos}):Play()
+		TweenService:Create(frame, TweenInfo.new(0.05), {Position = newPos}):Play()
 	end
 
 	dragHandle.InputBegan:Connect(function(input)
@@ -84,15 +79,15 @@ end
 --// Main Window //--
 function Library:CreateWindow(titleText)
 	local Window = {}
-	local Theme = Library.Theme -- Reference theme
+	local Theme = Library.Theme
 
 	-- UI Construction
 	local ScreenGui = Instance.new("ScreenGui")
 	ScreenGui.Name = "LynixUI"
 	if gethui then
-		ScreenGui.Parent = gethui() -- Secure execs
+		ScreenGui.Parent = gethui()
 	else
-		ScreenGui.Parent = CoreGui -- Standard
+		ScreenGui.Parent = CoreGui
 	end
 	
 	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -107,7 +102,7 @@ function Library:CreateWindow(titleText)
 	MainFrame.Position = UDim2.new(0.5, -230, 0.5, -125)
 	MainFrame.Size = UDim2.new(0, 461, 0, 251)
 	
-	-- Initial Animation
+	-- Open Animation
 	MainFrame.Size = UDim2.new(0, 0, 0, 0)
 	TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {Size = UDim2.new(0, 461, 0, 251)}):Play()
 
@@ -142,14 +137,24 @@ function Library:CreateWindow(titleText)
 	TitleLabel.TextSize = 18.000
 	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
+	-- Close Button (X)
 	local CloseBtn = Instance.new("ImageButton")
 	CloseBtn.Parent = MainFrame
 	CloseBtn.BackgroundTransparency = 1.000
 	CloseBtn.Position = UDim2.new(0.915, 0, 0.032, 0)
 	CloseBtn.Size = UDim2.new(0, 30, 0, 24)
 	CloseBtn.Image = "rbxassetid://103094495394151"
-	CloseBtn.ImageColor3 = Theme.MainColor -- Apply theme
+	CloseBtn.ImageColor3 = Theme.MainColor
 	
+	-- Minimize Button (-)
+	local MinBtn = Instance.new("ImageButton")
+	MinBtn.Parent = MainFrame
+	MinBtn.BackgroundTransparency = 1.000
+	MinBtn.Position = UDim2.new(0.85, 0, 0.032, 0)
+	MinBtn.Size = UDim2.new(0, 30, 0, 24)
+	MinBtn.Image = "rbxassetid://80500837074519"
+	MinBtn.ImageColor3 = Theme.MainColor
+
 	local Divider = Instance.new("Frame")
 	Divider.Parent = MainFrame
 	Divider.BackgroundColor3 = Theme.MainColor
@@ -191,23 +196,46 @@ function Library:CreateWindow(titleText)
 	
 	makeDraggable(MainFrame, MainFrame)
 	
+	-- Close Logic
 	CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 	
-	--// Mobile Button Feature //--
+	-- Minimize Logic
+	local minimized = false
+	local fullSize = UDim2.new(0, 461, 0, 251)
+	local miniSize = UDim2.new(0, 461, 0, 40)
+	
+	MinBtn.MouseButton1Click:Connect(function()
+		minimized = not minimized
+		if minimized then
+			TabContainer.Visible = false
+			PageContainer.Visible = false
+			Divider.Visible = false
+			MainFrame:TweenSize(miniSize, Enum.EasingDirection.Out, Enum.EasingStyle.Quint, 0.3, true)
+		else
+			MainFrame:TweenSize(fullSize, Enum.EasingDirection.Out, Enum.EasingStyle.Quint, 0.3, true)
+			task.wait(0.2)
+			if not minimized then
+				TabContainer.Visible = true
+				PageContainer.Visible = true
+				Divider.Visible = true
+			end
+		end
+	end)
+	
+	--// Mobile Button //--
 	function Window:CreateMobileButton(iconId)
 		local MobileBtn = Instance.new("ImageButton")
 		MobileBtn.Name = "MobileToggle"
 		MobileBtn.Parent = ScreenGui
 		MobileBtn.BackgroundColor3 = Theme.BackgroundColor
 		MobileBtn.Position = UDim2.new(0.1, 0, 0.2, 0)
-		MobileBtn.Size = UDim2.new(0, 50, 0, 50) -- Squircle size
-		MobileBtn.Image = iconId or "rbxassetid://18636968846" -- Default icon or provided one
+		MobileBtn.Size = UDim2.new(0, 50, 0, 50) 
+		MobileBtn.Image = iconId or "rbxassetid://18636968846" -- Gear/Menu Icon
 		MobileBtn.ImageColor3 = Theme.MainColor
 		MobileBtn.Active = true
 		
-		-- Squircle Look
 		local BtnCorner = Instance.new("UICorner")
-		BtnCorner.CornerRadius = UDim.new(0.3, 0) -- 30% roundness makes a nice squircle
+		BtnCorner.CornerRadius = UDim.new(0.3, 0)
 		BtnCorner.Parent = MobileBtn
 		
 		local BtnStroke = Instance.new("UIStroke")
@@ -224,14 +252,13 @@ function Library:CreateWindow(titleText)
 		end)
 	end
 	
-	--// Tab System //--
+	--// Tabs //--
 	local tabs = {}
 	local firstTab = true
 	
 	function Window:CreateTab(name)
 		local Tab = {}
 		
-		-- Tab Button
 		local TabBtn = Instance.new("TextButton")
 		TabBtn.Name = name .. "_Btn"
 		TabBtn.Parent = TabContainer
@@ -264,7 +291,6 @@ function Library:CreateWindow(titleText)
 		TabPadding.Parent = TabContainer
 		TabPadding.PaddingTop = UDim.new(0, 10)
 		
-		-- Tab Page
 		local Page = Instance.new("ScrollingFrame")
 		Page.Name = name .. "_Page"
 		Page.Parent = PageContainer
@@ -286,9 +312,8 @@ function Library:CreateWindow(titleText)
 		local PagePadding = Instance.new("UIPadding")
 		PagePadding.Parent = Page
 		PagePadding.PaddingTop = UDim.new(0, 15)
-		PagePadding.PaddingBottom = UDim.new(0, 30) -- Extra space at bottom for mobile scrolling
+		PagePadding.PaddingBottom = UDim.new(0, 30)
 		
-		-- Tab Logic
 		TabBtn.MouseButton1Click:Connect(function()
 			for _, t in pairs(tabs) do
 				t.Page.Visible = false
@@ -334,20 +359,20 @@ function Library:CreateWindow(titleText)
 			TLabel.Parent = ToggleFrame
 			TLabel.BackgroundTransparency = 1
 			TLabel.Position = UDim2.new(0.05, 0, 0, 0)
-			TLabel.Size = UDim2.new(0.75, 0, 1, 0) -- Extended height
+			TLabel.Size = UDim2.new(0.75, 0, 1, 0)
 			TLabel.Font = Enum.Font.FredokaOne
 			TLabel.Text = text
 			TLabel.TextColor3 = Theme.TextColor
 			TLabel.TextSize = 14.000
 			TLabel.TextXAlignment = Enum.TextXAlignment.Left
 			
-			-- The invisible button now covers the ENTIRE frame for easier mobile tapping
+			-- Full Size Hitbox for Mobile
 			local TButton = Instance.new("TextButton")
 			TButton.Parent = ToggleFrame
 			TButton.Text = ""
 			TButton.BackgroundTransparency = 1
 			TButton.Size = UDim2.new(1, 0, 1, 0)
-			TButton.ZIndex = 5 -- On top of everything
+			TButton.ZIndex = 5 
 			
 			local CheckBg = Instance.new("Frame")
 			CheckBg.Parent = ToggleFrame
@@ -424,7 +449,6 @@ function Library:CreateWindow(titleText)
 			Icon.Image = "rbxassetid://110620726041573"
 			Icon.ImageColor3 = Theme.MainColor
 			
-			-- Hitbox covers entire frame
 			local Hitbox = Instance.new("TextButton")
 			Hitbox.Parent = BtnFrame
 			Hitbox.BackgroundTransparency = 1
@@ -435,7 +459,6 @@ function Library:CreateWindow(titleText)
 			addHoverEffect(BtnFrame, BStroke)
 			
 			Hitbox.MouseButton1Click:Connect(function()
-				-- Click Animation
 				TweenService:Create(BtnFrame, TweenInfo.new(0.1), {BackgroundColor3 = Theme.SecondaryColor}):Play()
 				task.wait(0.1)
 				TweenService:Create(BtnFrame, TweenInfo.new(0.1), {BackgroundColor3 = Theme.BackgroundColor}):Play()
@@ -492,8 +515,7 @@ function Library:CreateWindow(titleText)
 			FillCorner.CornerRadius = UDim.new(0, 5)
 			FillCorner.Parent = Fill
 			
-			--// IMPROVED MOBILE SLIDER LOGIC //--
-			-- The trigger covers the entire slider container, not just the bar
+			-- Mobile/Full Hitbox Trigger
 			local Trigger = Instance.new("TextButton")
 			Trigger.Parent = SliderFrame
 			Trigger.BackgroundTransparency = 1
@@ -507,7 +529,6 @@ function Library:CreateWindow(titleText)
 			
 			local function update(input)
 				local pos = input.Position.X
-				-- Calculate relative to the specific SlideBg part, even if clicking elsewhere in the frame
 				local bgAbsPos = SlideBg.AbsolutePosition.X
 				local bgAbsSize = SlideBg.AbsoluteSize.X
 				
