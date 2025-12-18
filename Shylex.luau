@@ -204,13 +204,24 @@ function Library:CreateWindow(titleText)
 
 	makeDraggable(MainFrame, TopBar)
 
-	-- Content Containers
-	local TabContainer = Instance.new("Frame")
+	--// Content Containers //--
+	
+	-- 1. Change Frame to ScrollingFrame
+	local TabContainer = Instance.new("ScrollingFrame") 
+	TabContainer.Name = "TabContainer"
 	TabContainer.Parent = MainFrame
 	TabContainer.BackgroundColor3 = Theme.BackgroundColor
 	TabContainer.BackgroundTransparency = 0.9
 	TabContainer.Position = UDim2.new(0.024, 0, 0.2, 0)
 	TabContainer.Size = UDim2.new(0, 107, 0, 189)
+	
+	-- 2. Add Scrolling Properties
+	TabContainer.CanvasSize = UDim2.new(0, 0, 0, 0) -- Start at 0
+	TabContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y -- Grow vertically automatically
+	TabContainer.ScrollBarThickness = 0 -- Make it thin
+	TabContainer.ScrollBarImageColor3 = Theme.MainColor
+	Library:AddToRegistry(TabContainer, "ScrollBarImageColor3", "MainColor") -- Add to Theme Registry
+	
 	Instance.new("UICorner", TabContainer)
 
 	local TabStroke = Instance.new("UIStroke")
@@ -233,7 +244,6 @@ function Library:CreateWindow(titleText)
 	PageStroke.Thickness = 0.7
 	PageStroke.Color = Theme.MainColor
 	Library:AddToRegistry(PageStroke, "Color", "MainColor")
-
 	-- Close Logic
 	CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
